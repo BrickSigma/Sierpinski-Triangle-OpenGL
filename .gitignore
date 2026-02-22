@@ -1,0 +1,11 @@
+object/
+.vscode
+*.o
+*.a
+*.dll
+*.exe
+*.out
+*.so
+.clang-format
+.clangd
+compile_flags.txt
