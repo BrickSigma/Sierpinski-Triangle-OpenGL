@@ -28,20 +28,7 @@ Camera *CreateCamera(vec3 position, vec3 target, vec3 up) {
 	}
 
 	camera->pitch = asin(front[1]);
-	float x_yaw = acos(front[0]/cos(camera->pitch));
-	float z_yaw = asin(front[2]/cos(camera->pitch));
-
-	if ((x_yaw >= 0) && z_yaw >= 0) {
-		camera->yaw = x_yaw;
-	} else if ((x_yaw >= 0) && (z_yaw <= 0)) {
-		camera->yaw = GLM_PI - x_yaw;
-	} else if ((x_yaw <= 0) && (z_yaw >= 0)) {
-		camera->yaw = x_yaw;
-	} else {
-		camera->yaw = GLM_PI - x_yaw;
-	}
-
-	printf("Pitch: %f Yaw: %f\n", camera->pitch, camera->yaw);
+	camera->yaw = atan2(front[2]/cos(camera->pitch), front[0]/cos(camera->pitch));
 
 	return camera;
 }
@@ -79,13 +66,9 @@ void RotateCamera(Camera *camera, float pitch, float yaw) {
 		camera->pitch = glm_rad(-89.0f);
 	}
 
-	printf("(%f %f)\n", camera->pitch, camera->yaw);
-
 	camera->front[0] = cos(camera->yaw)*cos(camera->pitch);
 	camera->front[1] = sin(camera->pitch);
 	camera->front[2] = sin(camera->yaw)*cos(camera->pitch);
-
-	printf("Camera front: [%f, %f, %f]\n", camera->front[0], camera->front[1], camera->front[2]);
 }
 
 void GetCameraViewMatrix(Camera *camera, mat4 view) {

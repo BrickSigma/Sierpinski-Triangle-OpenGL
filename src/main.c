@@ -94,8 +94,6 @@ int main(int argc, char *argv[]) {
 	SDL_SetWindowRelativeMouseMode(window, true);
 	SDL_SetRelativeMouseTransform(handle_mouse, camera);
 
-	RotateCamera(camera, 0, 0);
-
 	int subdivide = 0;
 
 	bool running = true;
@@ -185,7 +183,6 @@ void handle_mouse(void *user_data, Uint64 timestamp, SDL_Window *window,
 
 	float pitch = *y * camera_sensitivity;
 	float yaw = *x * camera_sensitivity;
-	printf("%f %f\n", pitch, yaw);
 	RotateCamera(camera, -pitch, yaw);
 }
 
