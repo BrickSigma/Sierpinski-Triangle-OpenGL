@@ -17,6 +17,7 @@ make
 - Use your mouse to look around.
 - The UP/DOWN arrow keys increase/decrease the number of triangles subdivided. (**Note:** Since this is a recursive implementation, if you increase it to a depth of more than 8 or so the app will slow down, lag, and possibly crash).
 - I've also added gamepad controller support, so you can connect your favorite controller to use as well. The controls are close to Minecraft's controls: left joystick for movement, right for looking around, and A and B buttons for moving up and down.
+- The mouse wheel and D-Pad Up and Down buttons can zoom in and out.
 
 # Screenshots
 ![Screenshot](./screenshots/image.png)

@@ -117,6 +117,9 @@ int main(int argc, char *argv[]) {
 	printf("%s\n",
 	       (gamepad == NULL) ? "Gamepad not connected!" : "Gamepad connected!");
 
+	// Control the FOV
+	float fov = 45.0f;
+
 	int subdivide = 0;
 
 	bool running = true;
@@ -132,6 +135,7 @@ int main(int argc, char *argv[]) {
 				case SDLK_ESCAPE:
 					running = false;
 					break;
+
 				case SDLK_DOWN:
 					subdivide--;
 					if (subdivide < 0)
@@ -140,6 +144,19 @@ int main(int argc, char *argv[]) {
 				case SDLK_UP:
 					subdivide++;
 					break;
+
+				case SDLK_RETURN:
+					fov = 45.0f;
+					break;
+				}
+				break;
+
+			case SDL_EVENT_MOUSE_WHEEL:
+				fov -= event.wheel.y * 3;
+				if (fov < 1.0f) {
+					fov = 1.0f;
+				} else if (fov > 45.0f) {
+					fov = 45.0f;
 				}
 				break;
 			}
@@ -198,6 +215,21 @@ int main(int argc, char *argv[]) {
 				direction[1] -= camera_speed;
 			}
 
+			// Zoom in and out
+			float zoom = 0.0f;
+			if (SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_DPAD_DOWN)) {
+				zoom = 1.0f;
+			} else if (SDL_GetGamepadButton(gamepad,
+			                                SDL_GAMEPAD_BUTTON_DPAD_UP)) {
+				zoom = -1.0f;
+			}
+			fov += zoom * 0.1f;
+			if (fov < 1.0f) {
+				fov = 1.0f;
+			} else if (fov > 45.0f) {
+				fov = 45.0f;
+			}
+
 			// Handle looking around
 			x_axis = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHTX);
 			y_axis = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHTY);
@@ -205,18 +237,18 @@ int main(int argc, char *argv[]) {
 			float pitch = 0.0f, yaw = 0.0f;
 			if (x_axis > DRIF_THRESHOLD) {
 				yaw = ROTATION_SPEED * ((float)(x_axis - DRIF_THRESHOLD) /
-				              (float)GAMEPAD_MAX_AXIS);
+				                        (float)GAMEPAD_MAX_AXIS);
 			} else if (x_axis < -DRIF_THRESHOLD) {
 				yaw = -ROTATION_SPEED * ((float)((-x_axis) - DRIF_THRESHOLD) /
-				               (float)GAMEPAD_MAX_AXIS);
+				                         (float)GAMEPAD_MAX_AXIS);
 			}
 
 			if (y_axis > DRIF_THRESHOLD) {
 				pitch = -ROTATION_SPEED * ((float)(y_axis - DRIF_THRESHOLD) /
-				                 (float)GAMEPAD_MAX_AXIS);
+				                           (float)GAMEPAD_MAX_AXIS);
 			} else if (y_axis < -DRIF_THRESHOLD) {
 				pitch = ROTATION_SPEED * (((float)((-y_axis) - DRIF_THRESHOLD) /
-				                 (float)GAMEPAD_MAX_AXIS));
+				                           (float)GAMEPAD_MAX_AXIS));
 			}
 
 			pitch *= camera_sensitivity;
@@ -230,7 +262,7 @@ int main(int argc, char *argv[]) {
 		GetCameraViewMatrix(camera, view);
 
 		mat4 perspective;
-		glm_perspective(glm_rad(45.0f), 1.0f, 0.1f, 100.0f, perspective);
+		glm_perspective(glm_rad(fov), 1.0f, 0.1f, 100.0f, perspective);
 
 		glUniformMatrix4fv(view_uniform, 1, GL_FALSE, (float *)view);
 		glUniformMatrix4fv(perspective_uniform, 1, GL_FALSE,
