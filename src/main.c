@@ -8,9 +8,12 @@
 #include "shaders/shader.h"
 #include "vertices.h"
 
+// Callback function to handle mouse movement.
+void handle_mouse(void *user_data, Uint64 timestamp, SDL_Window *window,
+                  SDL_MouseID mouse_id, float *x, float *y);
+
 // Used to draw a traingle.
-void draw_triangle(vec3 top, float scale, unsigned int uniform_loc,
-                   Uint64 rotate);
+void draw_triangle(vec3 top, float scale, unsigned int uniform_loc);
 
 /**
  * Draw Serpinski's traingle.
@@ -27,28 +30,31 @@ void draw_triangle(vec3 top, float scale, unsigned int uniform_loc,
  * uniforms have been setup properly.
  */
 void draw_serpinskis_triangle(vec3 top, int subdivide, float scale,
-                              unsigned int uniform_loc,
-                              bool show_red_triangles);
+                              unsigned int uniform_loc);
 
 int main(int argc, char *argv[]) {
 	(void)argc;
 	(void)argv;
 	SDL_Init(SDL_INIT_VIDEO);
 
-	if (!SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1)) {
-		printf("%s\n", SDL_GetError());
-	}
+	// Define OpenGL aatributes for SDL
+	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,
 	                    SDL_GL_CONTEXT_PROFILE_CORE);
 
+	// Setup the window and GL context
+
 	SDL_Window *window =
 	    SDL_CreateWindow("Serpinski's Triangle", 800, 800, SDL_WINDOW_OPENGL);
+
 	SDL_GLContext context = SDL_GL_CreateContext(window);
 	gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress);
 	glViewport(0, 0, 800, 800);
 	glEnable(GL_DEPTH_TEST);
+
+	// Copy the vertex data to the GPU for OpenGL
 
 	unsigned int vbo, vao;
 	glGenBuffers(1, &vbo);
@@ -65,6 +71,7 @@ int main(int argc, char *argv[]) {
 	                      (void *)(sizeof(float) * 3));
 	glEnableVertexAttribArray(1);
 
+	// Setup the shader program
 	ShaderProgram *program = LoadShaderProgram("shader.vert", "shader.frag");
 	UseShaderProgram(program);
 
@@ -76,13 +83,20 @@ int main(int argc, char *argv[]) {
 	unsigned int perspective_uniform =
 	    glGetUniformLocation(*program, "perspective");
 
-	Camera *camera = CreateCamera((vec3){0.0, 0.0, 3.0}, (vec3){0.0, 0.0, 0.0},
+	// Camera and clock setup
+
+	Camera *camera = CreateCamera((vec3){0.0, 0.0, -3.0}, (vec3){0.0, 0.0, 0.0},
 	                              (vec3){0.0, 1.0, 0.0});
 
-	Clock *clock = CreateClock(30);
+	Clock *clock = CreateClock(60);
+
+	// Mouse callback setup
+	SDL_SetWindowRelativeMouseMode(window, true);
+	SDL_SetRelativeMouseTransform(handle_mouse, camera);
+
+	RotateCamera(camera, 0, 0);
 
 	int subdivide = 0;
-	bool show_red_triangles = false;
 
 	bool running = true;
 	while (running) {
@@ -104,9 +118,6 @@ int main(int argc, char *argv[]) {
 					break;
 				case SDLK_UP:
 					subdivide++;
-					break;
-				case SDLK_SPACE:
-					show_red_triangles = !show_red_triangles;
 					break;
 				}
 				break;
@@ -150,7 +161,7 @@ int main(int argc, char *argv[]) {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		draw_serpinskis_triangle((vec3){0.0, 0.5, 0.0}, subdivide, 1.0,
-		                         model_uniform, show_red_triangles);
+		                         model_uniform);
 
 		SDL_GL_SwapWindow(window);
 
@@ -168,27 +179,31 @@ int main(int argc, char *argv[]) {
 	return 0;
 }
 
-void draw_triangle(vec3 top, float scale, unsigned int uniform_loc,
-                   Uint64 rotate) {
+void handle_mouse(void *user_data, Uint64 timestamp, SDL_Window *window,
+                  SDL_MouseID mouse_id, float *x, float *y) {
+	Camera *camera = (Camera *)user_data;
+
+	float pitch = *y * camera_sensitivity;
+	float yaw = *x * camera_sensitivity;
+	printf("%f %f\n", pitch, yaw);
+	RotateCamera(camera, -pitch, yaw);
+}
+
+void draw_triangle(vec3 top, float scale, unsigned int uniform_loc) {
 	vec3 center = {top[0], (top[1] - (0.5f * scale)), top[2]};
 
 	mat4 model = GLM_MAT4_IDENTITY_INIT;
 	glm_translate(model, center);
 	glm_scale(model, (vec3){scale, scale, scale});
 
-	if (rotate != 0) {
-		glm_rotate(model, rotate / 1000.0f, (vec3){0.0, 1.0, 0.0f});
-	}
-
 	glUniformMatrix4fv(uniform_loc, 1, GL_FALSE, (float *)model);
 	glDrawArrays(GL_TRIANGLES, 0, 18);
 }
 
 void draw_serpinskis_triangle(vec3 top, int subdivide, float scale,
-                              unsigned int uniform_loc,
-                              bool show_red_triangles) {
+                              unsigned int uniform_loc) {
 	if (subdivide <= 0) { // Base case
-		draw_triangle(top, scale, uniform_loc, 0);
+		draw_triangle(top, scale, uniform_loc);
 		return;
 	}
 
@@ -204,7 +219,6 @@ void draw_serpinskis_triangle(vec3 top, int subdivide, float scale,
 	 *     /         \
 	 * bl /_____*_____\  br
 	 *         mid3
-	 *
 	 *
 	 */
 
@@ -230,19 +244,11 @@ void draw_serpinskis_triangle(vec3 top, int subdivide, float scale,
 	glm_vec3_add(mid_lf, mid_rb, base_center);
 	glm_vec3_divs(base_center, 2.0f, base_center);
 
-	draw_serpinskis_triangle(top, subdivide, scale, uniform_loc,
-	                         show_red_triangles);
-	draw_serpinskis_triangle(mid_lf, subdivide, scale, uniform_loc,
-	                         show_red_triangles);
-	draw_serpinskis_triangle(mid_lb, subdivide, scale, uniform_loc,
-	                         show_red_triangles);
-	draw_serpinskis_triangle(mid_rf, subdivide, scale, uniform_loc,
-	                         show_red_triangles);
-	draw_serpinskis_triangle(mid_rb, subdivide, scale, uniform_loc,
-	                         show_red_triangles);
-
-	if (show_red_triangles)
-		draw_triangle(base_center, -scale, uniform_loc, SDL_GetTicks());
+	draw_serpinskis_triangle(top, subdivide, scale, uniform_loc);
+	draw_serpinskis_triangle(mid_lf, subdivide, scale, uniform_loc);
+	draw_serpinskis_triangle(mid_lb, subdivide, scale, uniform_loc);
+	draw_serpinskis_triangle(mid_rf, subdivide, scale, uniform_loc);
+	draw_serpinskis_triangle(mid_rb, subdivide, scale, uniform_loc);
 
 	return;
 }
