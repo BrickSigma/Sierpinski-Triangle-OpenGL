@@ -8,6 +8,14 @@
 #include "shaders/shader.h"
 #include "vertices.h"
 
+// Used to handle joystick drifting. (My controller suffers terribly with it
+// >~< )
+const Sint16 DRIF_THRESHOLD = 20000;
+
+const Sint16 GAMEPAD_MAX_AXIS = 32767 - DRIF_THRESHOLD;
+
+const float ROTATION_SPEED = 10.0f;
+
 // Callback function to handle mouse movement.
 void handle_mouse(void *user_data, Uint64 timestamp, SDL_Window *window,
                   SDL_MouseID mouse_id, float *x, float *y);
@@ -35,7 +43,7 @@ void draw_serpinskis_triangle(vec3 top, int subdivide, float scale,
 int main(int argc, char *argv[]) {
 	(void)argc;
 	(void)argv;
-	SDL_Init(SDL_INIT_VIDEO);
+	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD);
 
 	// Define OpenGL aatributes for SDL
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
@@ -85,7 +93,7 @@ int main(int argc, char *argv[]) {
 
 	// Camera and clock setup
 
-	Camera *camera = CreateCamera((vec3){0.0, 0.0, -3.0}, (vec3){0.0, 0.0, 0.0},
+	Camera *camera = CreateCamera((vec3){0.0, 0.0, 3.0}, (vec3){0.0, 0.0, 0.0},
 	                              (vec3){0.0, 1.0, 0.0});
 
 	Clock *clock = CreateClock(60);
@@ -93,6 +101,21 @@ int main(int argc, char *argv[]) {
 	// Mouse callback setup
 	SDL_SetWindowRelativeMouseMode(window, true);
 	SDL_SetRelativeMouseTransform(handle_mouse, camera);
+
+	// Gamepad setup
+	int num_joysticks;
+	SDL_JoystickID *joysticks = SDL_GetGamepads(&num_joysticks);
+	SDL_JoystickID joystick_id;
+	// If `NULL`, then no gamepad has been connected.
+	SDL_Gamepad *gamepad = NULL;
+	if (num_joysticks > 0) {
+		joystick_id = joysticks[0]; // Select only one joystick.
+		gamepad = SDL_OpenGamepad(joystick_id);
+	}
+	free(joysticks);
+
+	printf("%s\n",
+	       (gamepad == NULL) ? "Gamepad not connected!" : "Gamepad connected!");
 
 	int subdivide = 0;
 
@@ -143,6 +166,64 @@ int main(int argc, char *argv[]) {
 			direction[1] -= camera_speed;
 		}
 
+		if (gamepad != NULL) {
+			Sint16 x_axis = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_LEFTX);
+			Sint16 y_axis = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_LEFTY);
+
+			// Movement
+			if (x_axis > DRIF_THRESHOLD) {
+				direction[0] +=
+				    camera_speed * ((float)(x_axis - DRIF_THRESHOLD) /
+				                    (float)GAMEPAD_MAX_AXIS);
+			} else if (x_axis < -DRIF_THRESHOLD) {
+				direction[0] -=
+				    camera_speed * ((float)((-x_axis) - DRIF_THRESHOLD) /
+				                    (float)GAMEPAD_MAX_AXIS);
+			}
+
+			if (y_axis > DRIF_THRESHOLD) {
+				direction[2] +=
+				    camera_speed * ((float)(y_axis - DRIF_THRESHOLD) /
+				                    (float)GAMEPAD_MAX_AXIS);
+			} else if (y_axis < -DRIF_THRESHOLD) {
+				direction[2] -=
+				    camera_speed * (((float)((-y_axis) - DRIF_THRESHOLD) /
+				                     (float)GAMEPAD_MAX_AXIS));
+			}
+
+			// Move up/down
+			if (SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_SOUTH)) {
+				direction[1] += camera_speed;
+			} else if (SDL_GetGamepadButton(gamepad, SDL_GAMEPAD_BUTTON_EAST)) {
+				direction[1] -= camera_speed;
+			}
+
+			// Handle looking around
+			x_axis = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHTX);
+			y_axis = SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHTY);
+
+			float pitch = 0.0f, yaw = 0.0f;
+			if (x_axis > DRIF_THRESHOLD) {
+				yaw = ROTATION_SPEED * ((float)(x_axis - DRIF_THRESHOLD) /
+				              (float)GAMEPAD_MAX_AXIS);
+			} else if (x_axis < -DRIF_THRESHOLD) {
+				yaw = -ROTATION_SPEED * ((float)((-x_axis) - DRIF_THRESHOLD) /
+				               (float)GAMEPAD_MAX_AXIS);
+			}
+
+			if (y_axis > DRIF_THRESHOLD) {
+				pitch = -ROTATION_SPEED * ((float)(y_axis - DRIF_THRESHOLD) /
+				                 (float)GAMEPAD_MAX_AXIS);
+			} else if (y_axis < -DRIF_THRESHOLD) {
+				pitch = ROTATION_SPEED * (((float)((-y_axis) - DRIF_THRESHOLD) /
+				                 (float)GAMEPAD_MAX_AXIS));
+			}
+
+			pitch *= camera_sensitivity;
+			yaw *= camera_sensitivity;
+			RotateCamera(camera, pitch, yaw);
+		}
+
 		MoveCamera(camera, direction);
 
 		mat4 view;
@@ -166,6 +247,7 @@ int main(int argc, char *argv[]) {
 		TickClock(clock);
 	}
 
+	SDL_CloseGamepad(gamepad);
 	DestroyClock(clock);
 	DestroyCamera(camera);
 	DeleteShaderProgram(program);
@@ -179,6 +261,11 @@ int main(int argc, char *argv[]) {
 
 void handle_mouse(void *user_data, Uint64 timestamp, SDL_Window *window,
                   SDL_MouseID mouse_id, float *x, float *y) {
+	// Ignore unused variable warnings
+	(void)timestamp;
+	(void)window;
+	(void)mouse_id;
+
 	Camera *camera = (Camera *)user_data;
 
 	float pitch = *y * camera_sensitivity;
