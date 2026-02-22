@@ -1,0 +1,2 @@
+-I./libs/glad/include
+-I./libs/cglm/include
