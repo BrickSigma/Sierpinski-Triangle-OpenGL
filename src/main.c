@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
 	// Setup the window and GL context
 
 	SDL_Window *window =
-	    SDL_CreateWindow("Serpinski's Triangle", 800, 800, SDL_WINDOW_OPENGL);
+	    SDL_CreateWindow("Sierpinski's Triangle", 800, 800, SDL_WINDOW_OPENGL);
 
 	SDL_GLContext context = SDL_GL_CreateContext(window);
 	gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress);
